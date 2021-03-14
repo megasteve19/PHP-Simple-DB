@@ -1,191 +1,268 @@
 <?php
-    class SDB
+    class Simple_DB
     {
-        const SQLERROR = "<b>Something wrong with your SQL syntax!</b>";
+        private $ConnectionConfig =
+        [
+            "Host"=>"localhost",
+            "Username"=>"root",
+            "Password"=>"kadir",
+            "Database"=>"epano"
+        ];
 
-        use Connection;
-        use DataTable;
-        use Check;
-    }
+        private $TableName = "";
 
-    trait Connection
-    {
-        public $Host = "localhost";
-        public $Username = "";
-        public $Password = "";
-        public $Database = "";
 
-        public function LoadConfig($File)
+        private function Connection()
         {
-            if(!file_exists($File))
-            {
-                exit("<h1>ERROR</h1><b>File not exists! Please enter valid file directory.</b>");
-            }
-            else
-            {
-                $Config = json_decode(file_get_contents($File));
+            $Connection = new mysqli($this->ConnectionConfig["Host"], $this->ConnectionConfig["Username"], $this->ConnectionConfig["Password"], $this->ConnectionConfig["Database"]);
 
-                if(json_last_error() == JSON_ERROR_NONE)
-                {
-                    if(empty($Config->sdb))
-                    {
-                        exit("<b>There's no valid \"sdb\" object in your file.</b>");
-                    }
-                }
-                else
-                {
-                    exit("<b>There's something wrong with your config file!</b>");
-                }
-            }
-
-            $this->Host = $Config->sdb->host;
-            $this->Username = $Config->sdb->username;
-            $this->Password = $Config->sdb->password;
-            $this->Database = $Config->sdb->database;
-        }
-
-        public function Connection()
-        {
-            $Connection = new mysqli($this->Host, $this->Username, $this->Password, $this->Database);
-
-            if($Connection->connect_error)
-            {
-                exit();
-            }
-            else
+            if(!$Connection->connect_error)
             {
                 return $Connection;
             }
+            else
+            {
+                die("Error on connect");
+            }
         }
-    }
-
-    trait DataTable
-    {
-        public $Count = 0;
-        public $IsTableEmpty = false;
-        public $Table = null;
-
-        public function FillTable($Query, $FetchBy = "assoc")
+        
+        public function Table($Columns = null, $Where = null)
         {
             $Connection = $this->Connection();
-            
+
+            $Array["Columns"] = $Columns;
+            $Array["Where"] = $Where;
+            $Query = $this->BuildQuery("Get", $Array);
+
             $Result = $Connection->query($Query);
 
-            if (!$Result) 
+            $Connection->close();
+
+            if($Result)
             {
-                exit(self::SQLERROR);
+                return $Result->fetch_all(MYSQLI_ASSOC);
             }
             else
             {
-                if(!$Result->num_rows == 0)
-                {
-                    $this->Count = $Result->num_rows;
-                    $this->IsEmpty = false;
-                    $this->Table = array();
+                return false;
+            }
+        }
 
-                    if($FetchBy == "assoc")
+        public function Insert($Values = null)
+        {
+            $Connection = $this->Connection();
+
+            $Query = $this->BuildQuery("Insert", $Values);
+
+            if($Connection->query($Query))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+
+            $Connection->close();
+        }
+
+        public function Update($Set = null, $Where = null)
+        {
+            $Connection = $this->Connection();
+
+            $Array["Set"] = $Set;
+            $Array["Where"] = $Where;
+            $Query = $this->BuildQuery("Set", $Array);
+
+            if($Connection->query($Query))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+
+            $Connection->close();
+        }
+
+        public function Delete($Where)
+        {
+            $Connection = $this->Connection();
+
+            $Query = $this->BuildQuery("Delete", $Where);
+
+            if($Connection->query($Query))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+
+            $Connection->close();
+        }
+
+        private function BuildQuery($Type, $Array)
+        {
+            switch ($Type)
+            {
+                case 'Get':
+                    $Query = "SELECT ";
+
+                    if(!empty($Array["Columns"]))
                     {
-                        for ($i=0; $i < $Result->num_rows; $i++) 
-                        {
-                            array_push($this->Table, $Result->fetch_array(MYSQLI_ASSOC));
-                        }
+                        $Query .= $this->GetColumns($Array["Columns"]) . "FROM {$this->TableName} ";
                     }
                     else
                     {
-                        for ($i=0; $i < $Result->num_rows; $i++) 
-                        {
-                            array_push($this->Table, $Result->fetch_array(MYSQLI_NUM));
-                        }
+                        $Query .= "* FROM {$this->TableName} ";
                     }
+
+                    if(!empty($Array["Where"]))
+                    {
+                        $Query .= "WHERE " . $this->SetColumns($Array["Where"], "AND");
+                    }
+
+                    return trim($Query) . ";";
+                    break;
+                
+                case "Insert":
+                    $Query = "INSERT INTO ";
+
+                    if(!empty($Array))
+                    {
+                        $Query .= "{$this->TableName}(" . trim($this->GetColumns($this->SeperateSlash($Array)[0])) . ") VALUES(" . trim($this->GetColumns($this->SeperateSlash($Array)[1], true)) . ")";
+                    }
+
+                    return $Query;
+                    break;
+                
+                case "Set":
+                    $Query = "UPDATE {$this->TableName} ";
+
+                    if(!empty($Array["Set"]))
+                    {
+                        $Query .= "SET " . $this->SetColumns($Array["Set"], ",");
+                    }
+
+                    if(!empty($Array["Where"]))
+                    {
+                        $Query .= "WHERE " . $this->SetColumns($Array["Where"], "AND");
+                    }
+
+                    return trim($Query) . ";";
+                    break;
+                case "Delete":
+                    $Query = "DELETE FROM {$this->TableName} ";
+
+                    if(!empty($Array))
+                    {
+                        $Query .= "WHERE " . $this->SetColumns($Array, "AND");
+                    }
+
+                    return trim($Query) . ";";
+                    break;
+            }
+        }
+
+        private function GetColumns($String, $IsVar = false)
+        {
+            $Columns = $this->SeparateComma($String);
+            $Q = "";
+
+            if($IsVar)
+            {
+                foreach ($Columns as $Key => $Value)
+                {
+                    if(Count($Columns) - 1 == $Key)
+                    {
+                        $Q .= $this->FormatSQLVariable($Value) . " ";
+                    }
+                    else
+                    {
+                        $Q .= $this->FormatSQLVariable($Value) . ", ";
+                    }
+                }
+            }
+            else
+            {
+                foreach ($Columns as $Key => $Value)
+                {
+                    if(Count($Columns) - 1 == $Key)
+                    {
+                        $Q .= "$Value ";
+                    }
+                    else
+                    {
+                        $Q .= "$Value, ";
+                    }
+                }
+            }
+
+            return $Q;
+        }
+
+        private function SetColumns($String, $Separator)
+        {
+            $Array["Columns"] = $this->SeparateComma($this->SeperateSlash($String)[0]);
+            $Array["Values"] = $this->SeparateComma($this->SeperateSlash($String)[1]);
+
+            $Q = "";
+
+            foreach ($Array["Columns"] as $Key => $Value)
+            {
+                if(Count($Array["Columns"]) - 1 == $Key)
+                {
+                    $Q .= "$Value = " . $this->FormatSQLVariable($Array['Values'][$Key]) . " ";
                 }
                 else
                 {
-                    echo "test";
-                    $this->Count = $Result->num_rows;
-                    $this->IsEmpty = true;
-                    $this->Table = null;
+                    $Q .= "$Value = " . $this->FormatSQLVariable($Array['Values'][$Key]) . " $Separator ";
                 }
-
-                $Connection->close();
             }
+
+            return $Q;
+        }
+
+        private function SeparateComma($String)
+        {
+            $String = explode(",", $String);
+
+            foreach($String as $Key => $Value)
+            {
+                $String[$Key] = trim($Value);
+            }
+
+            return $String;
+        }
+
+        private function SeperateSlash($String)
+        {
+            return explode("/", $String);
+        }
+
+        private function FormatSQLVariable($String)
+        {
+            if(is_numeric($String))
+            {
+                return $String;
+            }
+            else
+            {
+                return "'$String'";
+            }
+        }
+
+        public function __construct($TableName)
+        {
+            $this->TableName = $TableName;
         }
     }
 
-    trait Effect
+    function SDB($TableName)
     {
-        public $LastId = null;
-
-        public function Insert($Query)
-        {
-            $Connection = $this->Connection();
-
-            $Result = $Connection->query($Query);
-
-            if(!$Result) 
-            {
-                exit(self::SQLERROR);
-            }
-            else
-            {
-                $this->LastId = $Connection->insert_id;
-                $Connection->close();
-            }
-        }
-
-        public function Update($Query)
-        {
-            $Connection = $this->Connection();
-
-            $Result = $Connection->query($Query);
-
-            if(!$Result) 
-            {
-                exit(self::SQLERROR);
-            }
-            else
-            {
-                $Connection->close();
-            }
-        }
-    }
-
-    trait Check
-    {
-        public function CountTable(string $Table)
-        {
-            $Connection = $this->Connection();
-            
-            $Result = $Connection->query("Select Count(*) From $Table");
-            
-            if(!$Result) 
-            {
-                exit(self::SQLERROR);
-            }
-            else
-            {
-                $Count = $Result->fetch_array(MYSQLI_NUM);
-                $Connection->close();
-
-                return (int)$Count[0];
-            }
-        }
-
-        public function IsAvaible($Query)
-        {
-            $Connection = $this->Connection();
-
-            $Result = $Connection->query($Query);
-
-            if(!$Result) 
-            {
-                exit(self::SQLERROR);
-            }
-            else
-            {
-                $Connection->close();
-
-                return ($Result->num_rows == 0) ? true : false;
-            }
-        }
+        return new Simple_DB($TableName);
     }
 ?>
