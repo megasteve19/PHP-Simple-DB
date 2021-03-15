@@ -4,9 +4,9 @@
         private $ConnectionConfig =
         [
             "Host"=>"localhost",
-            "Username"=>"root",
-            "Password"=>"kadir",
-            "Database"=>"epano"
+            "Username"=>"",
+            "Password"=>"",
+            "Database"=>""
         ];
 
         private $TableName = "";
