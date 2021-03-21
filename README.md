@@ -1,81 +1,100 @@
 Before start, sorry if i'm not clear enough. It's my first documantation. 
 
-# Simple-DB
-Simple-DB is shorthand for simply select, insert, update and delete.
+# Get Started
+## Setup
+It's not big deal to setup Simple-DB.
 
-## Get Started
-Just make sure you changed '$ConnectionConfig' variable for yourself. Nothing needed other than this.
+Download Simple-DB and include to your project.
 
-Once you changed variable just call 'SDB("TableName")' for start. This function creates new instance of Simple_DB. But we will make everything through this function.
+To connect your database you have two choice;
+
+### Set with `SDB()`
+First one is giving an associative array to `SDB()`.
+
+`SDB(["Host"=>"localhost", "Username"=>"root", "Password"=>"passw", "Database"=>"somedb"]);`
+
+### Array as global
+Second one is defining same array as global variable. Just name it 'SimpleDB_ConnectConf' your variable and assign values.
+
+```
+$SimpleDB_ConnectConf = 
+[
+    "Host"=>"localhost",
+    "Username"=>"root",
+    "Password"=>"passw",
+    "Database"=>"somedb"
+];
+```
+
+## Syntax
+Syntax based on CSV. For example;
+
+`"Id, Content/1, Somethings come up."`
+
+Alway columns left side of the slash and values are in the right. Everything separated by comma. But what if we have value with a comma? Than use single quotes to point "that a single value man!"
+
+`"Id, Content/1, 'Somethings, come up'"`
+
+## Usage
+We will make everything through `SDB();` function.
+
+For selecting table give name to it. For example;
+
+`SDB("Users")->...`
+
+Just like that. It will search for a table. If table doesn't exist than you will get error.
+
+# Fetching Data
+For get data in our hands we have plenty ways to do it.
+
+* Table
+* Row
+* Search
 
 ## Table($Columns, $Where)
-If you want to get your all Table jus call this function through 'SDB("TableName")'
+Table function returns associative array of your table. Optionally have two parameters to pass.
 
-E.g.
+Example usage;
 
-`SDB("Classes")->Table();`
+`SDB("Users")->Table();`
 
-It will return associative array, something like this;
+### $Columns
+If you want to fetch one or two or maybe more columns pass a string that includes column names. If you not want to use just leave it empty.
 
-|Id|Grade|Branch|
-|--|-----|------|
-|12|11|A/T|
-|13|11|A/T|
-|14|11|B/L|
-|15|9|C|
-|16|12|B/L|
+Example usage;
 
-### Filtering
-If you want to filter it's simple too.
+`SDB("Users")->Table("FirstName, LastName");`
 
-For selecting spesific columns just add into $Columns parameter.
+If sdb can't find columns it will throw error.
 
-E.g.
+### $Where
+For fetching specified rows pass 'Columns/Values' to this parameter.
 
-`SDB("Classes")->Table("Grade, Branch");`
+Example usage;
 
-|Grade|Branch|
-|-----|------|
-|11|A/T|
-|11|A/T|
-|11|B/L|
-|9|C|
-|12|B/L|
+`SDB("Users")->Table("", "FirstName, LastName/John, Doe");`
 
-!Note don't forget comma's on selecting multiple columns.
+## Row($Columns, $Where)
+When you need only one row this function meet your needs. It's same as Table.
 
-Using 'WHERE' statement is simple too;
+Example usage;
 
-"Columns/Values"
+`SDB("Users")->Row("FirstName, LastName", "Id/1");`
 
-!Note use slash for seperate columns and values
+## Search($Search, $In)
+Need a simple search method? Search() why stands for.
 
-E.g.
+Example usage;
 
-`SDB("Classes")->Table("", "Grade/11");`
+`SDB("Users")->Search("John", "FirstName, LastName");`
 
-will return;
+### $Search
+This is what are you looking for. Like a query but just a string.
 
-|Id|Grade|Branch|
-|--|-----|------|
-|12|11|A/T|
-|13|11|A/T|
-|14|11|B/L|
+### $In
+It's actually columns. If you want search in specified columns pass columns to this. By the default it's searches in all columns.
 
-or
-
-`SDB("Classes")->Table("Grade, Branch", "Grade, Branch/12, B/L");`
-
-will return;
-
-|Grade|Branch|
-|-----|------|
-|11|B/L|
-|12|B/L|
-
-!Note as you can see there's no quotes at all. Just type the values.
-
-## Insert($Values)
+# Insert($Values)
 For insterting data into table just do the same thing like where statement.
 
 E.g
