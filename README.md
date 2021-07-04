@@ -1,3 +1,5 @@
+!! This project was a experimenting of jQuery style chaining also testing my 'skills'. Not safe to use.
+
 Before start, sorry if i'm not clear enough. It's my first documantation. 
 
 # Get Started
