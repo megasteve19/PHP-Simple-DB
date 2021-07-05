@@ -170,6 +170,3 @@ This function returns true on success and false on error.
 
 ***
 I hope you get the point :)
-
-test
-
